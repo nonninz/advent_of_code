@@ -28,19 +28,61 @@ defmodule Wire do
         [%{point | y: point.y - 1} | wire]
     end
   end
-
-  def manhattan_distance(left, right) when length(left) >= length(right) do
-    left
-    |> Enum.filter(fn point -> point in right end)
-    |> Enum.map(fn point -> abs(point.x) + abs(point.y) end)
-    |> Enum.min
-  end
-
-  def manhattan_distance(left, right), do: manhattan_distance(right, left)
 end
 
-calc_distance = fn [left, right] ->
-  Wire.manhattan_distance(left, right)
+defmodule Panel do
+  def new, do: %{}
+
+  def add(panel, {points, index}) do
+    points
+    |> Enum.with_index(1)
+    |> Enum.reduce(panel, fn {point, distance}, panel ->
+      add_point(panel, point, index, distance)
+    end)
+    |> Map.update(:wires, index, &max(&1, index))
+  end
+
+  defp add_point(panel, point, wire_index, distance) do
+    case Map.get(panel, point) do
+      nil ->
+        Map.put(panel, point, %{wire_index => distance})
+
+      %{^wire_index => prev_distance} when distance > prev_distance ->
+        # Existing distance is lower already
+        panel
+
+      distances ->
+        Map.put(panel, point, Map.put(distances, wire_index, distance))
+    end
+  end
+
+  def intersections(%{wires: wires} = panel) do
+    panel
+    |> Enum.filter(fn
+      {:wires, _} ->
+        false
+
+      {_, distances} ->
+        length(Map.keys(distances)) == wires
+
+      end)
+    |> Enum.into(%{})
+  end
+
+  def manhattan_distances(panel) do
+    panel
+    |> intersections()
+    |> Map.keys()
+    |> Enum.map(fn point -> abs(point.x) + abs(point.y) end)
+  end
+
+  def total_intersection_distances(panel) do
+    panel
+    |> intersections()
+    |> Enum.map(fn {_point, distances} ->
+      distances |> Map.values() |> Enum.sum()
+    end)
+  end
 end
 
 "input"
@@ -48,5 +90,9 @@ end
 |> Stream.map(&String.trim/1)
 |> Stream.map(&String.split(&1, ","))
 |> Enum.map(&Wire.build/1)
-|> calc_distance.()
-|> IO.puts()
+|> Enum.with_index(1)
+|> Enum.reduce(Panel.new(), &Panel.add(&2, &1))
+#> Panel.manhattan_distances()
+|> Panel.total_intersection_distances()
+|> Enum.min()
+|> IO.inspect()
