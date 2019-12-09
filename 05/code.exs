@@ -17,6 +17,10 @@ defmodule Instruction do
   defp op(code) when rem(code, 100) == 2, do: {:multiply, [1, 2], 3}
   defp op(code) when rem(code, 100) == 3, do: {:input, [], 1}
   defp op(code) when rem(code, 100) == 4, do: {:output, [1], nil}
+  defp op(code) when rem(code, 100) == 5, do: {:jump_if_true, [1, 2], nil}
+  defp op(code) when rem(code, 100) == 6, do: {:jump_if_false, [1, 2], nil}
+  defp op(code) when rem(code, 100) == 7, do: {:less_than, [1, 2], 3}
+  defp op(code) when rem(code, 100) == 8, do: {:equals, [1, 2], 3}
   defp op(code) when rem(code, 100) == 99, do: {:halt, [], nil}
 
   defp fetch_args(args, instruction, index, data) do
@@ -91,6 +95,38 @@ defmodule Program do
           IO.puts("#{arg}")
 
           process(data, instruction.next)
+
+      :jump_if_true ->
+          [arg, destination] = instruction.args
+
+          if arg != 0 do
+            process(data, destination)
+          else
+            process(data, instruction.next)
+          end
+
+      :jump_if_false ->
+          [arg, destination] = instruction.args
+
+          if arg == 0 do
+            process(data, destination)
+          else
+            process(data, instruction.next)
+          end
+
+      :less_than ->
+          result = if apply(&Kernel.</2, instruction.args), do: 1, else: 0
+
+          instruction.destination
+          |> :array.set(result, data)
+          |> process(instruction.next)
+
+      :equals ->
+          result = if apply(&Kernel.==/2, instruction.args), do: 1, else: 0
+
+          instruction.destination
+          |> :array.set(result, data)
+          |> process(instruction.next)
 
       :halt ->
         :halt
